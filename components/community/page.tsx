@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 
 // Initialize Supabase
@@ -41,7 +41,7 @@ export default function CommunityPage() {
   const [showModal, setShowModal] = useState<{post: Post, index: number} | null>(null);
   const [showImage, setShowImage] = useState<string | null>(null);
   
-  const observer = useRef<IntersectionObserver>();
+  const observer = useRef<IntersectionObserver | null>(null);
   const lastPostRef = useRef<HTMLDivElement>(null);
 
   const POSTS_PER_PAGE = 10;
