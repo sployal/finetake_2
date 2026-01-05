@@ -20,9 +20,16 @@ interface SearchPageProps {
 }
 
 // Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables');
+}
+
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  supabaseUrl || '',
+  supabaseAnonKey || ''
 );
 
 export default function SearchPage({ initialTab = 'explore' }: SearchPageProps) {
@@ -47,27 +54,54 @@ export default function SearchPage({ initialTab = 'explore' }: SearchPageProps) 
     setHasUserSearchQuery(true);
 
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      const searchTerm = query.toLowerCase();
+      // Check if Supabase is properly configured
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error('Supabase is not properly configured. Please check your environment variables.');
+      }
 
-      const { data, error } = await supabase
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError) {
+        console.warn('Auth error (continuing without user filter):', authError);
+      }
+
+      const searchTerm = query.toLowerCase().trim();
+      const searchPattern = `%${searchTerm}%`;
+      
+      // Build query with proper OR condition for Supabase PostgREST
+      // Format: field1.ilike.value1,field2.ilike.value2,field3.ilike.value3
+      let queryBuilder = supabase
         .from('profiles')
         .select('id, display_name, username, email, user_type, avatar_url, is_verified')
-        .neq('id', currentUser?.id || '')
-        .or(`display_name.ilike.%${searchTerm}%,username.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-        .order('display_name', { ascending: true })
+        .or(`display_name.ilike.${searchPattern},username.ilike.${searchPattern},email.ilike.${searchPattern}`);
+
+      // Only exclude current user if we have a valid user ID
+      if (currentUser?.id) {
+        queryBuilder = queryBuilder.neq('id', currentUser.id);
+      }
+
+      const { data, error } = await queryBuilder
+        .order('display_name', { ascending: true, nullsFirst: false })
         .limit(20);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase query error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw error;
+      }
 
       setUserSearchResults(data || []);
-    } catch (error) {
-      console.error('Failed to search users:', error);
+    } catch (error: any) {
+      console.error('Failed to search users:', error?.message || error);
       setUserSearchResults([]);
     } finally {
       setIsSearchingUsers(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
