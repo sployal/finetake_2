@@ -1,7 +1,15 @@
 'use client';
 
-import { useState, useRef, ChangeEvent } from 'react';
+import { useState, useRef, ChangeEvent, useEffect } from 'react';
 import { Camera, Upload, MapPin, Tag, Settings, X, Edit2, Check } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 export default function PostScreen() {
   const [caption, setCaption] = useState('');
@@ -13,13 +21,55 @@ export default function PostScreen() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [allowComments, setAllowComments] = useState(true);
   const [allowLikes, setAllowLikes] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const availableTags = [
     'nature', 'landscape', 'portrait', 'street', 'architecture',
     'sunset', 'photography', 'art', 'travel', 'urban',
     'macro', 'wildlife', 'blackandwhite', 'colors', 'abstract'
   ];
+
+  // Fetch current user and profile
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !currentUser) {
+          console.log('No user found, redirecting to login');
+          router.push('/login');
+          return;
+        }
+
+        setUser(currentUser);
+
+        // Fetch user profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (profileError) {
+          console.error('Error fetching profile:', profileError);
+          // Still show user email even if profile fetch fails
+        } else {
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        router.push('/login');
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    fetchUser();
+  }, [router]);
 
   const canPublish = () => {
     return selectedImage && caption.trim().length > 0;
@@ -104,13 +154,34 @@ export default function PostScreen() {
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Auth Status */}
-        <div className="bg-green-50 border border-green-500 rounded-xl p-4 flex items-center gap-3">
-          <Check className="text-green-600" size={24} />
-          <div>
-            <p className="font-bold text-green-700">Authenticated</p>
-            <p className="text-sm text-green-600">Logged in as user@example.com</p>
+        {isLoadingUser ? (
+          <div className="bg-blue-50 border border-blue-500 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <p className="font-bold text-blue-700">Loading...</p>
+              <p className="text-sm text-blue-600">Checking authentication</p>
+            </div>
           </div>
-        </div>
+        ) : user ? (
+          <div className="bg-green-50 border border-green-500 rounded-xl p-4 flex items-center gap-3">
+            <Check className="text-green-600" size={24} />
+            <div>
+              <p className="font-bold text-green-700">Authenticated</p>
+              <p className="text-sm text-green-600">
+                Logged in as {userProfile?.full_name || userProfile?.username || user.email}
+                {userProfile?.username && ` (@${userProfile.username})`}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-red-50 border border-red-500 rounded-xl p-4 flex items-center gap-3">
+            <X className="text-red-600" size={24} />
+            <div>
+              <p className="font-bold text-red-700">Not Authenticated</p>
+              <p className="text-sm text-red-600">Please log in to create a post</p>
+            </div>
+          </div>
+        )}
 
         {/* Image Selection */}
         <div className="bg-white rounded-2xl shadow-lg p-6">
