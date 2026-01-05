@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import ExplorePage from '@/components/explore/explore_section';
 
 interface UserSearchResult {
   id: string;
@@ -374,12 +375,7 @@ export default function SearchPage({ initialTab = 'explore' }: SearchPageProps) 
         {(!hasUserSearchQuery || !searchQuery) && (
           <div>
             {activeTab === 'explore' && (
-              <div className="p-4">
-                {/* Explore content - you can import your ExplorePage component here */}
-                <p className="text-center text-slate-500 dark:text-slate-400">
-                  Explore content goes here
-                </p>
-              </div>
+              <ExplorePage searchQuery={searchQuery} />
             )}
             {activeTab === 'tags' && (
               <div className="p-4">
