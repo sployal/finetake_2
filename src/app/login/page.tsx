@@ -35,7 +35,7 @@ export default function LoginPage() {
     if (session) {
       console.log('🔐 Found existing session');
       // Check server health or set auth token in your PostManager equivalent
-      router.push('/home');
+      router.push('/community');
     }
   };
 
@@ -94,7 +94,7 @@ export default function LoginPage() {
       if (data.user && data.session) {
         console.log('✅ Sign in successful');
         // Set token in your PostManager equivalent here
-        router.push('/home');
+        router.push('/community');
       }
     } catch (error: any) {
       console.error('❌ Sign in failed:', error.message);
@@ -137,7 +137,7 @@ export default function LoginPage() {
 
         if (data.session) {
           setTimeout(() => {
-            router.push('/home');
+            router.push('/community');
           }, 2000);
         }
       }
