@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+
+// Initialize Supabase client for the Explore page
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface ExplorePost {
   id: string;
@@ -32,7 +38,6 @@ export default function ExplorePage({ searchQuery = '' }: ExplorePageProps) {
   const [currentPage, setCurrentPage] = useState(0);
   
   const observerTarget = useRef<HTMLDivElement>(null);
-  const supabase = createClientComponentClient();
   const router = useRouter();
   
   const POSTS_PER_PAGE = 20;
@@ -100,7 +105,7 @@ export default function ExplorePage({ searchQuery = '' }: ExplorePageProps) {
       }
 
       // Get unique user IDs
-      const userIds = [...new Set(postsData.map((post) => post.user_id))];
+      const userIds = [...new Set(postsData.map((post: any) => post.user_id))];
 
       // Fetch user profiles
       const userProfiles: Record<string, any> = {};
@@ -113,7 +118,7 @@ export default function ExplorePage({ searchQuery = '' }: ExplorePageProps) {
             .in('id', userIds);
 
           if (!profilesError && profilesData) {
-            profilesData.forEach((profile) => {
+            profilesData.forEach((profile: any) => {
               userProfiles[profile.id] = profile;
             });
           }
