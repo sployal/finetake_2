@@ -200,10 +200,10 @@ export default function CollectionsPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-4 border-b">
+          <div className="flex border-b">
             <button
               onClick={() => setActiveTab('collection')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
+              className={`flex-1 px-4 py-3 font-medium border-b-2 transition-colors ${
                 activeTab === 'collection'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -213,7 +213,7 @@ export default function CollectionsPage() {
             </button>
             <button
               onClick={() => setActiveTab('marketplace')}
-              className={`px-4 py-3 font-medium border-b-2 transition-colors ${
+              className={`flex-1 px-4 py-3 font-medium border-b-2 transition-colors ${
                 activeTab === 'marketplace'
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -224,7 +224,7 @@ export default function CollectionsPage() {
             {canSendImages && (
               <button
                 onClick={() => setActiveTab('send')}
-                className={`px-4 py-3 font-medium border-b-2 transition-colors ${
+                className={`flex-1 px-4 py-3 font-medium border-b-2 transition-colors ${
                   activeTab === 'send'
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
