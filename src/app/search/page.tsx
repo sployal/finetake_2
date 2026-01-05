@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ExplorePage from '@/components/explore/explore_section';
+import TagsSection from '@/components/explore/tags_section';
 
 interface UserSearchResult {
   id: string;
@@ -378,12 +379,7 @@ export default function SearchPage({ initialTab = 'explore' }: SearchPageProps) 
               <ExplorePage searchQuery={searchQuery} />
             )}
             {activeTab === 'tags' && (
-              <div className="p-4">
-                {/* Tags content */}
-                <p className="text-center text-slate-500 dark:text-slate-400">
-                  Tags content goes here
-                </p>
-              </div>
+              <TagsSection />
             )}
           </div>
         )}
