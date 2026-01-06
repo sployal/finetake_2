@@ -631,7 +631,7 @@ function PostDetailModal({
 }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-[#23262B] rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden">
+      <div className="relative bg-[#23262B] rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden">
         {/* Handle bar */}
         <div className="flex justify-center pt-3 pb-2">
           <div className="w-10 h-1 bg-[#4F8A8B]/30 rounded-full" />
