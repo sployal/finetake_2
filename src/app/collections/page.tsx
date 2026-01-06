@@ -16,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import Market from '@/components/collections/market_section';
+import SendImages from '@/components/collections/sendimages';
 
 // Types
 interface ImageData {
@@ -239,7 +240,7 @@ export default function CollectionsPage() {
       </header>
 
       {/* Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={activeTab === 'send' ? '' : 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8'}>
         {activeTab === 'collection' && (
           <MyCollectionTab
             paidImages={paidImages}
@@ -258,9 +259,7 @@ export default function CollectionsPage() {
         )}
 
         {activeTab === 'send' && canSendImages && (
-          <div className="text-center py-12 text-gray-500">
-            Send images content goes here
-          </div>
+          <SendImages />
         )}
       </main>
 

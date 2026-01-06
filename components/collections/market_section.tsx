@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { 
   X, 
   Check, 
@@ -15,6 +16,12 @@ import {
   CheckSquare,
   Square
 } from 'lucide-react';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Types
 interface ImageData {
@@ -44,18 +51,127 @@ interface DeleteResult {
   error?: string;
 }
 
-// Mock Services (replace with actual API calls)
+// Image Service
 const imageService = {
   unpaidImages: [] as ImageData[],
   paidImages: [] as ImageData[],
   isLoading: false,
   
-  async loadImages() {
+  async loadImages(userId: string) {
     this.isLoading = true;
-    // TODO: Replace with actual API call
-    // const response = await fetch('/api/images');
-    // const data = await response.json();
-    this.isLoading = false;
+    try {
+      let imagesData: any[] = [];
+      let loaded = false;
+
+      // Try user_images table first
+      const { data: userImagesData, error: userImagesError } = await supabase
+        .from('user_images')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (!userImagesError && userImagesData) {
+        imagesData = userImagesData;
+        loaded = true;
+      }
+
+      // If not found, try collections table
+      if (!loaded) {
+        const { data: collectionsData, error: collectionsError } = await supabase
+          .from('collections')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!collectionsError && collectionsData) {
+          imagesData = collectionsData;
+          loaded = true;
+        }
+      }
+
+      // If still not found, try marketplace_images table
+      if (!loaded) {
+        const { data: marketplaceData, error: marketplaceError } = await supabase
+          .from('marketplace_images')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (!marketplaceError && marketplaceData) {
+          imagesData = marketplaceData;
+          loaded = true;
+        }
+      }
+
+      // If still not found, try to get images from user_purchases or user_collections
+      if (!loaded) {
+        // Check if user has purchased images
+        const { data: purchasesData, error: purchasesError } = await supabase
+          .from('user_purchases')
+          .select('*, image:image_id(*)')
+          .eq('user_id', userId);
+
+        if (!purchasesError && purchasesData && purchasesData.length > 0) {
+          // Map purchased images
+          imagesData = purchasesData
+            .filter(p => p.image)
+            .map(p => ({ ...p.image, status: 'paid', purchase_id: p.id }));
+          loaded = true;
+        }
+      }
+
+      // If we have images, check payment status from purchases table
+      if (imagesData.length > 0) {
+        const { data: purchases, error: purchasesError } = await supabase
+          .from('user_purchases')
+          .select('image_id, status')
+          .eq('user_id', userId)
+          .in('image_id', imagesData.map(img => img.id));
+
+        if (!purchasesError && purchases) {
+          const purchaseMap = new Map(
+            purchases.map(p => [p.image_id, p.status === 'completed' || p.status === 'paid'])
+          );
+          
+          // Update image status based on purchases
+          imagesData = imagesData.map(img => ({
+            ...img,
+            status: purchaseMap.get(img.id) ? 'paid' : (img.status || 'unpaid')
+          }));
+        }
+      }
+
+      // Process the loaded images
+      this.processImages(imagesData);
+    } catch (err) {
+      console.error('Error loading images:', err);
+      this.unpaidImages = [];
+      this.paidImages = [];
+    } finally {
+      this.isLoading = false;
+    }
+  },
+
+  processImages(images: any[]) {
+    this.unpaidImages = [];
+    this.paidImages = [];
+
+    images.forEach((img) => {
+      const imageData: ImageData = {
+        id: img.id,
+        image_url: img.image_url || img.imageUrl || img.url || '',
+        status: img.status === 'paid' || img.is_paid || img.payment_status === 'completed' ? 'paid' : 'unpaid',
+        collection_title: img.collection_title || img.title || img.name || undefined,
+        sender_name: img.sender_name || img.sender || img.photographer_name || undefined,
+        file_name: img.file_name || img.filename || undefined
+      };
+
+      if (imageData.status === 'paid') {
+        this.paidImages.push(imageData);
+      } else {
+        this.unpaidImages.push(imageData);
+      }
+    });
   }
 };
 
@@ -63,7 +179,35 @@ const adminPricingHelper = {
   currentPrice: 100,
   
   async loadCurrentPrice() {
-    // TODO: Replace with actual API call
+    try {
+      // Try to fetch current price from settings or pricing table
+      const { data: settings, error } = await supabase
+        .from('settings')
+        .select('image_price, current_price')
+        .eq('key', 'image_price')
+        .single();
+
+      if (!error && settings) {
+        this.currentPrice = settings.image_price || settings.current_price || 100;
+        return;
+      }
+
+      // Try pricing table
+      const { data: pricing, error: pricingError } = await supabase
+        .from('pricing')
+        .select('price')
+        .eq('item_type', 'image')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!pricingError && pricing) {
+        this.currentPrice = pricing.price || 100;
+      }
+    } catch (error) {
+      console.error('Error loading current price:', error);
+      // Keep default price of 100
+    }
   }
 };
 
@@ -93,13 +237,69 @@ const paymentManager = {
 
 const deleteService = {
   async deleteImage(imageId: string): Promise<DeleteResult> {
-    // TODO: Replace with actual API call
-    return { success: true, successCount: 1, failedCount: 0 };
+    try {
+      // Try to delete from user_images table
+      const { error: userImagesError } = await supabase
+        .from('user_images')
+        .delete()
+        .eq('id', imageId);
+
+      if (userImagesError) {
+        // Try collections table
+        const { error: collectionsError } = await supabase
+          .from('collections')
+          .delete()
+          .eq('id', imageId);
+
+        if (collectionsError) {
+          // Try marketplace_images table
+          const { error: marketplaceError } = await supabase
+            .from('marketplace_images')
+            .delete()
+            .eq('id', imageId);
+
+          if (marketplaceError) {
+            console.error('Error deleting image:', marketplaceError);
+            return { success: false, successCount: 0, failedCount: 1, error: marketplaceError.message };
+          }
+        }
+      }
+
+      return { success: true, successCount: 1, failedCount: 0 };
+    } catch (error: any) {
+      console.error('Error deleting image:', error);
+      return { success: false, successCount: 0, failedCount: 1, error: error.message };
+    }
   },
   
   async deleteMultipleImages(imageIds: string[]): Promise<DeleteResult> {
-    // TODO: Replace with actual API call
-    return { success: true, successCount: imageIds.length, failedCount: 0 };
+    try {
+      let successCount = 0;
+      let failedCount = 0;
+
+      for (const imageId of imageIds) {
+        const result = await this.deleteImage(imageId);
+        if (result.success) {
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      }
+
+      return { 
+        success: failedCount === 0, 
+        successCount, 
+        failedCount 
+      };
+    } catch (error: any) {
+      console.error('Error deleting multiple images:', error);
+      return { 
+        success: false, 
+        successCount: 0, 
+        failedCount: imageIds.length, 
+        error: error.message 
+      };
+    }
   }
 };
 
@@ -156,15 +356,49 @@ export default function Market() {
   } | null>(null);
 
   useEffect(() => {
-    loadImages();
+    loadUserAndImages();
     loadCurrentPrice();
   }, []);
 
+  const loadUserAndImages = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Get current authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('User not authenticated:', userError);
+        showSnackBar('Please sign in to view images', 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Load images for the logged-in user
+      await imageService.loadImages(user.id);
+      
+      // Update state with loaded images
+      const allImages = [...imageService.unpaidImages, ...imageService.paidImages];
+      setImages(allImages);
+      
+      // Check if user is admin
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single();
+      
+      setIsAdmin(profile?.is_admin || false);
+    } catch (error) {
+      console.error('Error loading user and images:', error);
+      showSnackBar('Failed to load images', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadImages = async () => {
-    setIsLoading(true);
-    await imageService.loadImages();
-    // TODO: Set images from service
-    setIsLoading(false);
+    await loadUserAndImages();
   };
 
   const loadCurrentPrice = async () => {
@@ -302,12 +536,16 @@ export default function Market() {
   const getFilteredImages = () => {
     let filtered: ImageData[] = [];
 
+    // Use the images state instead of imageService directly
+    const unpaid = images.filter(img => img.status === 'unpaid');
+    const paid = images.filter(img => img.status === 'paid');
+
     if (statusFilter === 'all') {
-      filtered = [...imageService.unpaidImages, ...imageService.paidImages];
+      filtered = [...unpaid, ...paid];
     } else if (statusFilter === 'unpaid') {
-      filtered = [...imageService.unpaidImages];
+      filtered = [...unpaid];
     } else {
-      filtered = [...imageService.paidImages];
+      filtered = [...paid];
     }
 
     if (senderFilter !== 'all') {
@@ -319,7 +557,7 @@ export default function Market() {
 
   const getAllSenders = () => {
     const senders = new Set<string>();
-    [...imageService.unpaidImages, ...imageService.paidImages].forEach(img => {
+    images.forEach(img => {
       senders.add(img.sender_name || 'Unknown');
     });
     return Array.from(senders);
