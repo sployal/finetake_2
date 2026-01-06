@@ -45,7 +45,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-64 bg-white shadow-lg h-screen fixed left-0 top-0 flex flex-col z-50">
+    <aside className="w-64 bg-white shadow-lg h-screen sticky top-0 flex flex-col flex-shrink-0">
       <div className="p-6 border-b">
         <h2 className="text-xl font-bold text-blue-600">FineTake</h2>
       </div>
