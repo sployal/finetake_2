@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Image from 'next/image';
-import Sidebar from '@/components/community/sidebar';
 
 // Initialize Supabase
 const supabase = createClient(
@@ -299,26 +298,21 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex">
-      {/* Sidebar */}
-      <Sidebar />
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 flex flex-col">
+      {/* Header */}
+      <header className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-blue-600">Home page</h1>
+          <button onClick={refresh} className="p-2 hover:bg-slate-100 rounded-full">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
+      </header>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <header className="bg-white shadow-sm sticky top-0 z-10">
-          <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-blue-600">FineTake Community</h1>
-            <button onClick={refresh} className="p-2 hover:bg-slate-100 rounded-full">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-          </div>
-        </header>
-
-        {/* Content */}
-        <main className="max-w-4xl mx-auto px-4 py-6 flex-1">
+      {/* Content */}
+      <main className="max-w-4xl mx-auto px-4 py-6 flex-1">
         {/* Section Header */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-slate-300"></div>
@@ -532,7 +526,6 @@ export default function CommunityPage() {
           <img src={showImage} alt="" className="max-w-full max-h-full object-contain" />
         </div>
       )}
-      </div>
     </div>
   );
 }
