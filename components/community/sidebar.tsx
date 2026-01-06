@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Search, PlusSquare, FolderOpen, User } from 'lucide-react';
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
-  const [clickedItem, setClickedItem] = useState<string | null>(null);
 
   const menuItems = [
     {
@@ -39,13 +37,6 @@ export default function Sidebar() {
 
   const isActive = (path: string) => {
     return pathname === path;
-  };
-
-  const handleItemClick = (path: string) => {
-    setClickedItem(path);
-    router.push(path);
-    // Hide label after 2 seconds
-    setTimeout(() => setClickedItem(null), 2000);
   };
 
   // Hide sidebar on login page
@@ -93,20 +84,14 @@ export default function Sidebar() {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
-            const isClicked = clickedItem === item.path;
             
             return (
               <button
                 key={item.path}
-                onClick={() => handleItemClick(item.path)}
+                onClick={() => router.push(item.path)}
                 className="flex flex-col items-center justify-center relative flex-1 h-full transition-colors"
               >
                 <Icon className={`w-6 h-6 ${active ? 'text-blue-600' : 'text-gray-600'}`} />
-                {isClicked && (
-                  <span className="absolute -top-8 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in">
-                    {item.label}
-                  </span>
-                )}
                 {active && (
                   <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"></div>
                 )}
