@@ -18,6 +18,7 @@ import {
   RefreshCw,
   AlertCircle
 } from 'lucide-react';
+import MyPosts from '@/components/profile/myposts';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -34,18 +35,9 @@ interface UserProfile {
   avatar_url?: string;
 }
 
-// Tab Components (to be implemented separately)
+// Tab Components
 function MyPostsTab() {
-  return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* TODO: Implement posts grid */}
-        <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-          <p className="text-gray-500">No posts yet</p>
-        </div>
-      </div>
-    </div>
-  );
+  return <MyPosts />;
 }
 
 function MyBookmarksTab() {
