@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
+import Market from '@/components/collections/market_section';
 
 // Types
 interface ImageData {
@@ -253,9 +254,7 @@ export default function CollectionsPage() {
         )}
 
         {activeTab === 'marketplace' && (
-          <div className="text-center py-12 text-gray-500">
-            Marketplace content goes here
-          </div>
+          <Market />
         )}
 
         {activeTab === 'send' && canSendImages && (
