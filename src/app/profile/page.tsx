@@ -19,6 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import MyPosts from '@/components/profile/myposts';
+import MyBookmarks from '@/components/profile/bookmarks';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -41,16 +42,7 @@ function MyPostsTab() {
 }
 
 function MyBookmarksTab() {
-  return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* TODO: Implement bookmarks grid */}
-        <div className="aspect-square bg-gray-200 rounded-lg flex items-center justify-center">
-          <p className="text-gray-500">No bookmarks yet</p>
-        </div>
-      </div>
-    </div>
-  );
+  return <MyBookmarks />;
 }
 
 // Main Profile Page Component
