@@ -497,8 +497,8 @@ export default function SendImages() {
 
       {/* Bottom Actions */}
       {selectedUser && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 p-4 shadow-lg">
-          <div className="flex gap-3">
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-slate-800 border-t border-gray-200 dark:border-slate-700 p-4 shadow-lg z-40">
+          <div className="flex gap-3 md:max-w-7xl md:mx-auto">
             {selectedImages.length > 0 && (
               <button
                 onClick={clearAllImages}
@@ -609,7 +609,7 @@ export default function SendImages() {
 
       {/* Snackbar Notification */}
       {snackbar && (
-        <div className="fixed bottom-24 left-4 right-4 z-50 animate-slide-up">
+        <div className="fixed bottom-32 md:bottom-24 left-4 right-4 md:left-[calc(16rem+1rem)] md:right-4 z-50 animate-slide-up">
           <div className={`px-4 py-3 rounded-lg shadow-lg ${
             snackbar.isError 
               ? 'bg-red-600 text-white' 
