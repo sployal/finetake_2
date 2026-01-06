@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Trash2, 
   Download, 
@@ -17,6 +19,12 @@ import {
 } from 'lucide-react';
 import Market from '@/components/collections/market_section';
 import SendImages from '@/components/collections/sendimages';
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Types
 interface ImageData {
@@ -34,66 +42,370 @@ interface UserType {
   color: string;
 }
 
-// Mock services - replace with your actual API calls
-const getUserType = async (): Promise<UserType> => {
-  // Replace with actual API call
-  return {
-    type: 'photographer',
-    displayName: 'Photographer',
-    color: '#3b82f6'
-  };
+// Get user type from profile
+const getUserType = async (userId: string): Promise<UserType> => {
+  try {
+    // Fetch all profile fields like other pages do
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      return {
+        type: 'user',
+        displayName: 'User',
+        color: '#6b7280'
+      };
+    }
+
+    if (!profile) {
+      console.warn('Profile not found for user:', userId);
+      return {
+        type: 'user',
+        displayName: 'User',
+        color: '#6b7280'
+      };
+    }
+
+    console.log('Profile data:', { 
+      is_admin: profile.is_admin, 
+      user_type: profile.user_type, 
+      role: profile.role 
+    });
+
+    // Determine user type - check is_admin first, then user_type, then role
+    let userType: 'photographer' | 'admin' | 'user' | null = 'user';
+    let displayName = 'User';
+    let color = '#6b7280';
+
+    if (profile.is_admin === true) {
+      userType = 'admin';
+      displayName = 'Admin';
+      color = '#ef4444';
+    } else if (profile.user_type === 'photographer' || profile.role === 'photographer') {
+      userType = 'photographer';
+      displayName = 'Photographer';
+      color = '#3b82f6';
+    } else if (profile.user_type === 'client' || profile.role === 'client') {
+      userType = 'user';
+      displayName = 'Client';
+      color = '#10b981';
+    }
+
+    return {
+      type: userType,
+      displayName,
+      color
+    };
+  } catch (error) {
+    console.error('Error getting user type:', error);
+    return {
+      type: 'user',
+      displayName: 'User',
+      color: '#6b7280'
+    };
+  }
 };
 
-const fetchPaidImages = async (): Promise<ImageData[]> => {
-  // Replace with actual API call
-  return [];
+// Fetch paid images for the signed-in user
+const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
+  try {
+    console.log('🔍 Fetching paid images for user:', userId);
+    let imagesData: any[] = [];
+    const imageIds = new Set<string>(); // To avoid duplicates
+
+    // First, try to get purchased images from user_purchases table
+    const { data: purchasesData, error: purchasesError } = await supabase
+      .from('user_purchases')
+      .select('*, image:image_id(*)')
+      .eq('user_id', userId)
+      .in('status', ['completed', 'paid']);
+
+    if (purchasesError) {
+      console.warn('Error fetching from user_purchases:', purchasesError);
+    } else {
+      console.log('📦 Found purchases:', purchasesData?.length || 0);
+      if (purchasesData && purchasesData.length > 0) {
+        // Map purchased images
+        purchasesData
+          .filter(p => p.image && !imageIds.has(p.image.id))
+          .forEach(p => {
+            imageIds.add(p.image.id);
+            imagesData.push({
+              ...p.image,
+              status: 'paid',
+              purchase_id: p.id
+            });
+          });
+      }
+    }
+
+    // Also check collections table for paid images
+    const { data: collectionsData, error: collectionsError } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (collectionsError) {
+      console.warn('Error fetching from collections:', collectionsError);
+    } else {
+      console.log('📚 Found collections:', collectionsData?.length || 0);
+      if (collectionsData) {
+        const paidCollections = collectionsData.filter(img => {
+          const isPaid = img.status === 'paid' || img.is_paid === true || img.payment_status === 'completed';
+          return isPaid && !imageIds.has(img.id);
+        });
+        console.log('💰 Paid collections:', paidCollections.length);
+        paidCollections.forEach(img => {
+          imageIds.add(img.id);
+          imagesData.push(img);
+        });
+      }
+    }
+
+    // Also check user_images table for paid images
+    const { data: userImagesData, error: userImagesError } = await supabase
+      .from('user_images')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (userImagesError) {
+      console.warn('Error fetching from user_images:', userImagesError);
+    } else {
+      console.log('🖼️ Found user_images:', userImagesData?.length || 0);
+      if (userImagesData) {
+        const paidUserImages = userImagesData.filter(img => {
+          const isPaid = img.status === 'paid' || img.is_paid === true || img.payment_status === 'completed';
+          return isPaid && !imageIds.has(img.id);
+        });
+        console.log('💰 Paid user_images:', paidUserImages.length);
+        paidUserImages.forEach(img => {
+          imageIds.add(img.id);
+          imagesData.push(img);
+        });
+      }
+    }
+
+    console.log('✅ Total paid images found:', imagesData.length);
+
+    // Map to ImageData format
+    const mappedImages = imagesData.map((img) => ({
+      id: img.id,
+      image_url: img.image_url || img.imageUrl || img.url || '',
+      title: img.title || img.name || undefined,
+      collection_title: img.collection_title || img.title || img.name || undefined,
+      sender_name: img.sender_name || img.sender || img.photographer_name || undefined,
+      file_name: img.file_name || img.filename || undefined
+    }));
+
+    return mappedImages;
+  } catch (error) {
+    console.error('❌ Error fetching paid images:', error);
+    return [];
+  }
 };
 
-const deleteImage = async (imageId: string): Promise<{ success: boolean; message?: string; error?: string }> => {
-  // Replace with actual API call
-  return { success: true, message: 'Image deleted successfully' };
+const deleteImage = async (imageId: string, userId: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+  try {
+    // Try to delete from collections table first
+    const { error: collectionsError } = await supabase
+      .from('collections')
+      .delete()
+      .eq('id', imageId)
+      .eq('user_id', userId);
+
+    if (!collectionsError) {
+      return { success: true, message: 'Image deleted successfully' };
+    }
+
+    // Try user_images table
+    const { error: userImagesError } = await supabase
+      .from('user_images')
+      .delete()
+      .eq('id', imageId)
+      .eq('user_id', userId);
+
+    if (!userImagesError) {
+      return { success: true, message: 'Image deleted successfully' };
+    }
+
+    // Try user_purchases table (remove purchase record)
+    const { error: purchasesError } = await supabase
+      .from('user_purchases')
+      .delete()
+      .eq('image_id', imageId)
+      .eq('user_id', userId);
+
+    if (!purchasesError) {
+      return { success: true, message: 'Image deleted successfully' };
+    }
+
+    return { success: false, error: 'Failed to delete image' };
+  } catch (error: any) {
+    console.error('Error deleting image:', error);
+    return { success: false, error: error.message || 'Failed to delete image' };
+  }
 };
 
 export default function CollectionsPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'collection' | 'marketplace' | 'send'>('marketplace');
   const [userType, setUserType] = useState<UserType | null>(null);
   const [paidImages, setPaidImages] = useState<ImageData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingImages, setIsLoadingImages] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
   const [selectedImage, setSelectedImage] = useState<{ image: ImageData; index: number } | null>(null);
   const [showAppBar, setShowAppBar] = useState(true);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [userId, setUserId] = useState<string | null>(null);
 
+  // Load user type first (separate from images)
   useEffect(() => {
-    loadUserTypeAndImages();
-  }, []);
+    loadUserType();
+  }, [router]);
 
-  const loadUserTypeAndImages = async () => {
+  // Load images separately when user is loaded and collection tab might be viewed
+  useEffect(() => {
+    if (userId) {
+      loadPaidImages();
+    }
+  }, [userId]);
+
+  const loadUserType = async () => {
+    setIsLoading(true);
+    setHasError(false);
+
     try {
-      setIsLoading(true);
-      const [user, images] = await Promise.all([
-        getUserType(),
-        fetchPaidImages()
-      ]);
-      setUserType(user);
-      setPaidImages(images);
+      // Get current authenticated user - same as profile page
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !currentUser) {
+        setHasError(true);
+        setIsLoading(false);
+        router.push('/login');
+        return;
+      }
+
+      setUserId(currentUser.id);
+
+      // Fetch user profile from profiles table - same as profile page
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        setHasError(true);
+        setIsLoading(false);
+        return;
+      }
+
+      // Debug: Log the profile data to see what we're working with
+      console.log('📋 Profile data:', {
+        id: profileData?.id,
+        is_admin: profileData?.is_admin,
+        user_type: profileData?.user_type,
+        role: profileData?.role,
+        full_profile: profileData
+      });
+
+      // Determine user type from profile - check all possible fields
+      let userType: 'photographer' | 'admin' | 'user' | null = 'user';
+      let displayName = 'User';
+      let color = '#6b7280';
+
+      // Get role from various possible fields (case-insensitive)
+      const roleValue = (profileData?.role || profileData?.user_type || '').toString().toLowerCase();
+      const isAdmin = profileData?.is_admin === true || profileData?.is_admin === 1;
+
+      // Check admin first
+      if (isAdmin) {
+        userType = 'admin';
+        displayName = 'Admin';
+        color = '#ef4444';
+        console.log('✅ User type: Admin');
+      } 
+      // Check photographer (case-insensitive)
+      else if (roleValue === 'photographer') {
+        userType = 'photographer';
+        displayName = 'Photographer';
+        color = '#3b82f6';
+        console.log('✅ User type: Photographer');
+      } 
+      // Check client (case-insensitive)
+      else if (roleValue === 'client') {
+        userType = 'user';
+        displayName = 'Client';
+        color = '#10b981';
+        console.log('✅ User type: Client');
+      } 
+      // Default fallback
+      else {
+        console.warn('⚠️ No matching role found. Role value:', roleValue, 'Profile:', profileData);
+        // If we have a role value but it doesn't match, still try to use it
+        if (roleValue) {
+          displayName = roleValue.charAt(0).toUpperCase() + roleValue.slice(1);
+          console.log('⚠️ Using role value as display name:', displayName);
+        } else {
+          displayName = 'User';
+        }
+        userType = 'user';
+        color = '#6b7280';
+      }
+
+      console.log('🎯 Setting user type:', { type: userType, displayName, color });
+
+      setUserType({
+        type: userType,
+        displayName,
+        color
+      });
+
       setHasError(false);
-    } catch (error) {
+    } catch (err: any) {
+      console.error('Error loading user type:', err);
       setHasError(true);
-      console.error('Error loading data:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Load images separately
+  const loadPaidImages = async () => {
+    if (!userId) return;
+    
+    setIsLoadingImages(true);
+    try {
+      const images = await fetchPaidImages(userId);
+      setPaidImages(images);
+    } catch (err: any) {
+      console.error('Error loading images:', err);
+    } finally {
+      setIsLoadingImages(false);
     }
   };
 
   const handleDeleteImage = async (image: ImageData) => {
     if (!confirm('Are you sure you want to delete this image?')) return;
 
+    if (!userId) {
+      showNotification('User not authenticated', 'error');
+      return;
+    }
+
     setDeletingImages(prev => new Set(prev).add(image.id));
 
     try {
-      const result = await deleteImage(image.id);
+      const result = await deleteImage(image.id, userId);
       
       if (result.success) {
         setPaidImages(prev => prev.filter(img => img.id !== image.id));
@@ -115,6 +427,10 @@ export default function CollectionsPage() {
         return newSet;
       });
     }
+  };
+
+  const handleRefresh = () => {
+    loadPaidImages();
   };
 
   const handleDownloadImage = (image: ImageData) => {
@@ -168,7 +484,7 @@ export default function CollectionsPage() {
           </div>
           <h2 className="text-xl font-semibold mb-4">Failed to load user data</h2>
           <button
-            onClick={loadUserTypeAndImages}
+            onClick={loadUserType}
             className="flex items-center gap-2 mx-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
             <RefreshCw className="w-4 h-4" />
@@ -249,8 +565,9 @@ export default function CollectionsPage() {
             onDownloadImage={handleDownloadImage}
             onShareImage={handleShareImage}
             onImageClick={(image, index) => setSelectedImage({ image, index })}
-            onRefresh={loadUserTypeAndImages}
+            onRefresh={handleRefresh}
             onSwitchToMarketplace={() => setActiveTab('marketplace')}
+            isLoadingImages={isLoadingImages}
           />
         )}
 
@@ -290,7 +607,8 @@ function MyCollectionTab({
   onShareImage,
   onImageClick,
   onRefresh,
-  onSwitchToMarketplace
+  onSwitchToMarketplace,
+  isLoadingImages
 }: {
   paidImages: ImageData[];
   deletingImages: Set<string>;
@@ -300,8 +618,18 @@ function MyCollectionTab({
   onImageClick: (image: ImageData, index: number) => void;
   onRefresh: () => void;
   onSwitchToMarketplace: () => void;
+  isLoadingImages: boolean;
 }) {
   const [showOptions, setShowOptions] = useState<string | null>(null);
+
+  if (isLoadingImages) {
+    return (
+      <div className="text-center py-20">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-gray-500">Loading images...</p>
+      </div>
+    );
+  }
 
   if (paidImages.length === 0) {
     return (

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import Image from 'next/image';
+import FeaturedItems from '@/components/community/featured_items';
 
 // Initialize Supabase
 const supabase = createClient(
@@ -313,6 +314,11 @@ export default function CommunityPage() {
 
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-6 flex-1">
+        {/* Featured Items Section */}
+        <div className="mb-8">
+          <FeaturedItems />
+        </div>
+
         {/* Section Header */}
         <div className="flex items-center gap-4 my-8">
           <div className="flex-1 h-px bg-slate-300"></div>
