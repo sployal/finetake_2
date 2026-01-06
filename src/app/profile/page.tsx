@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import {
   User,
   Mail,
@@ -18,6 +19,12 @@ import {
   AlertCircle
 } from 'lucide-react';
 
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 // Types
 interface UserProfile {
   id: string;
@@ -26,44 +33,6 @@ interface UserProfile {
   email: string;
   avatar_url?: string;
 }
-
-// Mock Supabase service (replace with actual Supabase client)
-const supabaseService = {
-  async getCurrentUser() {
-    // TODO: Replace with actual Supabase auth
-    // const { data: { user } } = await supabase.auth.getUser();
-    return {
-      id: 'user-123',
-      email: 'user@example.com'
-    };
-  },
-
-  async getUserProfile(userId: string): Promise<UserProfile | null> {
-    // TODO: Replace with actual Supabase query
-    // const { data } = await supabase
-    //   .from('profiles')
-    //   .select('username, display_name, avatar_url')
-    //   .eq('id', userId)
-    //   .single();
-    return {
-      id: userId,
-      username: 'johndoe',
-      display_name: 'John Doe',
-      email: 'user@example.com',
-      avatar_url: undefined
-    };
-  },
-
-  async signOut() {
-    // TODO: Replace with actual Supabase signout
-    // await supabase.auth.signOut();
-  },
-
-  async isAdmin(): Promise<boolean> {
-    // TODO: Replace with actual admin check
-    return false;
-  }
-};
 
 // Tab Components (to be implemented separately)
 function MyPostsTab() {
@@ -105,33 +74,55 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadUserProfile();
-  }, []);
+  }, [router]);
 
   const loadUserProfile = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const currentUser = await supabaseService.getCurrentUser();
+      // Get current authenticated user
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
       
-      if (!currentUser) {
+      if (userError || !currentUser) {
         setError('Please sign in to view your profile');
+        setIsLoading(false);
+        router.push('/login');
+        return;
+      }
+
+      // Fetch user profile from profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        setError('Failed to load profile information');
         setIsLoading(false);
         return;
       }
 
-      const userProfile = await supabaseService.getUserProfile(currentUser.id);
-      const adminStatus = await supabaseService.isAdmin();
-
-      if (userProfile) {
+      if (profileData) {
+        // Map database fields to UserProfile interface
         setProfile({
-          ...userProfile,
-          email: currentUser.email || 'No email'
+          id: profileData.id,
+          username: profileData.username || 'user',
+          display_name: profileData.full_name || profileData.username || 'User',
+          email: currentUser.email || profileData.email || 'No email',
+          avatar_url: profileData.avatar_url
         });
-        setIsAdmin(adminStatus);
+        
+        // Check admin status
+        setIsAdmin(profileData.is_admin || false);
+      } else {
+        setError('Profile not found');
       }
-    } catch (err) {
-      setError(`Failed to load profile: ${err}`);
+    } catch (err: any) {
+      console.error('Error loading profile:', err);
+      setError(`Failed to load profile: ${err?.message || 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }
@@ -139,11 +130,14 @@ export default function ProfilePage() {
 
   const handleSignOut = async () => {
     try {
-      await supabaseService.signOut();
-      // Show success message
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      setShowSignOutDialog(false);
       router.push('/login');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error signing out:', err);
+      setError('Failed to sign out. Please try again.');
     }
   };
 
