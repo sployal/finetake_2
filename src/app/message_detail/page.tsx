@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
@@ -57,17 +58,15 @@ const isSameDay = (d1: Date, d2: Date) => {
          d1.getDate() === d2.getDate();
 };
 
-export default function MessageDetailScreen({ 
-  conversationId: initialConversationId,
-  otherUserId,
-  otherUserName,
-  otherUserAvatar 
-}: {
-  conversationId?: string;
-  otherUserId: string;
-  otherUserName: string;
-  otherUserAvatar?: string;
-}) {
+function MessageDetailScreenContent() {
+  const searchParams = useSearchParams();
+  
+  // Get values from URL search params
+  const initialConversationId = searchParams.get('conversationId') || undefined;
+  const otherUserId = searchParams.get('userId') || '';
+  const otherUserName = searchParams.get('userName') || 'Unknown User';
+  const otherUserAvatar = searchParams.get('avatar') || undefined;
+  
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -340,6 +339,7 @@ export default function MessageDetailScreen({
 
   const shouldShowDateDivider = (index: number) => {
     if (index === messages.length - 1) return true;
+    if (!messages[index] || !messages[index + 1]) return false;
     
     const currentDate = new Date(messages[index].created_at);
     const nextDate = new Date(messages[index + 1].created_at);
@@ -402,7 +402,7 @@ export default function MessageDetailScreen({
                 {otherUserAvatar ? (
                   <img src={otherUserAvatar} alt={otherUserName} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-blue-500 font-semibold text-lg">{otherUserName[0]}</span>
+                  <span className="text-blue-500 font-semibold text-lg">{otherUserName?.[0] || '?'}</span>
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -663,5 +663,17 @@ function MessageBubble({
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MessageDetailScreen() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-screen bg-gradient-to-b from-slate-50 to-slate-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent" />
+      </div>
+    }>
+      <MessageDetailScreenContent />
+    </Suspense>
   );
 }
