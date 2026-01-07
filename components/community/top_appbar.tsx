@@ -216,7 +216,7 @@ export default function TopAppBar({ onRefresh }: TopAppBarProps) {
             />
           </svg>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            FineTake
+            home
           </h1>
         </div>
 
