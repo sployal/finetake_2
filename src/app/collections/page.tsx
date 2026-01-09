@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@supabase/supabase-js';
@@ -325,7 +325,7 @@ export default function CollectionsPage() {
 
       // Get role from various possible fields (case-insensitive)
       const roleValue = (profileData?.role || profileData?.user_type || '').toString().toLowerCase();
-      const isAdmin = profileData?.is_admin === true || profileData?.is_admin === 1;
+      const isAdmin = profileData?.is_admin === true || profileData?.is_admin === 1 || roleValue === 'admin';
 
       // Check admin first
       if (isAdmin) {
@@ -463,7 +463,21 @@ export default function CollectionsPage() {
     console.log(`${type.toUpperCase()}: ${message}`);
   };
 
-  const canSendImages = userType?.type === 'photographer' || userType?.type === 'admin';
+  // Only allow admin or photographer users to send images
+  const canSendImages = useMemo(() => {
+    const isAdmin = userType?.type === 'admin';
+    const isPhotographer = userType?.type === 'photographer';
+    const canSend = isAdmin || isPhotographer;
+    console.log('🔍 canSendImages check:', {
+      userType: userType?.type,
+      displayName: userType?.displayName,
+      isAdmin,
+      isPhotographer,
+      canSend,
+      fullUserType: userType
+    });
+    return canSend;
+  }, [userType]);
 
   if (isLoading) {
     return (
