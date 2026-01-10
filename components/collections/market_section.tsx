@@ -866,47 +866,49 @@ export default function Market() {
       {/* Download Dialog */}
       {showDownloadDialog && selectedImageForDownload && (
         <Dialog onClose={() => setShowDownloadDialog(false)}>
-          <h2 className="text-xl font-bold mb-4">Image Options</h2>
-          <button
-            onClick={() => {
-              downloadManager.downloadImage(
-                selectedImageForDownload.image_url,
-                downloadManager.sanitizeFileName(
-                  selectedImageForDownload.file_name || 
-                  selectedImageForDownload.collection_title || 
-                  'Image'
-                )
-              );
-              setShowDownloadDialog(false);
-            }}
-            className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded"
-          >
-            <Download className="text-green-600" size={24} />
-            <div className="text-left">
-              <p className="font-medium">Download Image</p>
-              <p className="text-sm text-gray-600">Save to device downloads</p>
-            </div>
-          </button>
-          <button
-            onClick={() => {
-              downloadManager.shareImage(
-                selectedImageForDownload.image_url,
-                downloadManager.sanitizeFileName(
-                  selectedImageForDownload.file_name || 
-                  selectedImageForDownload.collection_title || 
-                  'Image'
-                )
-              );
-              setShowDownloadDialog(false);
-            }}
-            className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded"
-          >
-            <Share2 className="text-blue-600" size={24} />
-            <div className="text-left">
-              <p className="font-medium">Share Image</p>
-              <p className="text-sm text-gray-600">Share with friends</p>
-            </div>
-          </button>
+          <div className="text-black">
+            <h2 className="text-xl font-bold mb-4">Image Options</h2>
+            <button
+              onClick={() => {
+                downloadManager.downloadImage(
+                  selectedImageForDownload.image_url,
+                  downloadManager.sanitizeFileName(
+                    selectedImageForDownload.file_name || 
+                    selectedImageForDownload.collection_title || 
+                    'Image'
+                  )
+                );
+                setShowDownloadDialog(false);
+              }}
+              className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded"
+            >
+              <Download className="text-green-600" size={24} />
+              <div className="text-left">
+                <p className="font-medium text-black">Download Image</p>
+                <p className="text-sm text-black">Save to device downloads</p>
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                downloadManager.shareImage(
+                  selectedImageForDownload.image_url,
+                  downloadManager.sanitizeFileName(
+                    selectedImageForDownload.file_name || 
+                    selectedImageForDownload.collection_title || 
+                    'Image'
+                  )
+                );
+                setShowDownloadDialog(false);
+              }}
+              className="w-full flex items-center gap-3 p-3 hover:bg-gray-100 rounded mt-2"
+            >
+              <Share2 className="text-blue-600" size={24} />
+              <div className="text-left">
+                <p className="font-medium text-black">Share Image</p>
+                <p className="text-sm text-black">Share with friends</p>
+              </div>
+            </button>
+          </div>
         </Dialog>
       )}
     </div>
@@ -1023,8 +1025,15 @@ function ImageCard({
 // Dialog Component
 function Dialog({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
+    <div onClick={onClose} className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto relative text-black">
+        <button
+          onClick={onClose}
+          aria-label="Close dialog"
+          className="absolute top-3 right-3 p-1.5 rounded hover:bg-gray-100"
+        >
+          <X size={18} className="text-gray-700" />
+        </button>
         {children}
       </div>
     </div>
