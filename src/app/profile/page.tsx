@@ -135,7 +135,7 @@ export default function ProfilePage() {
         router.push('/dashboard');
         break;
       case 'users':
-        router.push('/admin/users');
+        router.push('/profile/users');
         break;
       case 'logout':
         setShowSignOutDialog(true);
@@ -211,6 +211,14 @@ export default function ProfilePage() {
                       <span className="font-medium text-gray-900">Edit Profile</span>
                     </button>
 
+                      <button
+                        onClick={() => handleMenuAction('users')}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition"
+                      >
+                        <Users size={20} className="text-indigo-600" />
+                        <span className="font-medium text-gray-900">Users</span>
+                      </button>
+
                     {isAdmin && (
                       <>
                         <button
@@ -221,13 +229,7 @@ export default function ProfilePage() {
                           <span className="font-medium text-gray-900">Dashboard</span>
                         </button>
 
-                        <button
-                          onClick={() => handleMenuAction('users')}
-                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition"
-                        >
-                          <Users size={20} className="text-indigo-600" />
-                          <span className="font-medium text-gray-900">Users</span>
-                        </button>
+                        {/* admin-only dashboard button kept here */}
                       </>
                     )}
 
