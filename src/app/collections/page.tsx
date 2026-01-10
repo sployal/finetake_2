@@ -119,9 +119,12 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
     console.log('🔍 Fetching images for user (photos/images schema):', userId);
 
       // Fetch photos where the user is the recipient and include nested images
+      // NOTE: remove the attempt to join sender via `sender:sender_id(...)` which
+      // may not map to a valid PostgREST relationship name; instead fetch
+      // sender profiles in a separate step (fallbackProfiles) below.
       const { data: photosData, error: photosError } = await supabase
         .from('photos')
-        .select('id, title, description, is_payment_required, sender_id, recipient_id, sender:sender_id(id, display_name, full_name, name, username, first_name, last_name, avatar_url), images(*)')
+        .select('id, title, description, is_payment_required, sender_id, recipient_id, images(*)')
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false });
 
