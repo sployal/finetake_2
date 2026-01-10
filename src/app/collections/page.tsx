@@ -110,142 +110,90 @@ const getUserType = async (userId: string): Promise<UserType> => {
   }
 };
 
-// Fetch paid images for the signed-in user
+// Fetch images visible to the signed-in user according to the photos/images schema
 const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
   try {
-    console.log('🔍 Fetching paid images for user:', userId);
-    let imagesData: any[] = [];
-    const imageIds = new Set<string>(); // To avoid duplicates
+    console.log('🔍 Fetching images for user (photos/images schema):', userId);
 
-    // First, try to get purchased images from user_purchases table
-    const { data: purchasesData, error: purchasesError } = await supabase
-      .from('user_purchases')
-      .select('*, image:image_id(*)')
-      .eq('user_id', userId)
-      .in('status', ['completed', 'paid']);
+    // Fetch photos that involve the user (either sender or recipient) and include nested images
+    const { data: photosData, error: photosError } = await supabase
+      .from('photos')
+      .select('id, title, description, is_payment_required, sender_id, recipient_id, images(*)')
+      .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
 
-    if (purchasesError) {
-      console.warn('Error fetching from user_purchases:', purchasesError);
-    } else {
-      console.log('📦 Found purchases:', purchasesData?.length || 0);
-      if (purchasesData && purchasesData.length > 0) {
-        // Map purchased images
-        purchasesData
-          .filter(p => p.image && !imageIds.has(p.image.id))
-          .forEach(p => {
-            imageIds.add(p.image.id);
-            imagesData.push({
-              ...p.image,
-              status: 'paid',
-              purchase_id: p.id
-            });
+    if (photosError) {
+      console.warn('Error fetching photos:', photosError);
+      return [];
+    }
+
+    const imagesResult: ImageData[] = [];
+    const seen = new Set<string>();
+
+    (photosData || []).forEach((photo: any) => {
+      const isSender = photo.sender_id === userId;
+      const isRecipient = photo.recipient_id === userId;
+
+      if (!photo.images || photo.images.length === 0) return;
+
+      photo.images.forEach((img: any) => {
+        if (!img || !img.id || seen.has(img.id)) return;
+        // If user is sender, they can see all images
+        if (isSender) {
+          seen.add(img.id);
+          imagesResult.push({
+            id: img.id,
+            image_url: img.image_url || img.url || '',
+            title: img.title || photo.title || undefined,
+            collection_title: photo.title || undefined,
+            sender_name: undefined,
+            file_name: img.file_name || undefined
           });
-      }
-    }
+          return;
+        }
 
-    // Also check collections table for paid images
-    const { data: collectionsData, error: collectionsError } = await supabase
-      .from('collections')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+        // If user is recipient, only include if photo is free OR image is paid
+        if (isRecipient) {
+          const photoRequiresPayment = photo.is_payment_required === true;
+          const imageIsPaid = img.status === 'paid';
 
-    if (collectionsError) {
-      console.warn('Error fetching from collections:', collectionsError);
-    } else {
-      console.log('📚 Found collections:', collectionsData?.length || 0);
-      if (collectionsData) {
-        const paidCollections = collectionsData.filter(img => {
-          const isPaid = img.status === 'paid' || img.is_paid === true || img.payment_status === 'completed';
-          return isPaid && !imageIds.has(img.id);
-        });
-        console.log('💰 Paid collections:', paidCollections.length);
-        paidCollections.forEach(img => {
-          imageIds.add(img.id);
-          imagesData.push(img);
-        });
-      }
-    }
+          if (!photoRequiresPayment || imageIsPaid) {
+            seen.add(img.id);
+            imagesResult.push({
+              id: img.id,
+              image_url: img.image_url || img.url || '',
+              title: img.title || photo.title || undefined,
+              collection_title: photo.title || undefined,
+              sender_name: undefined,
+              file_name: img.file_name || undefined
+            });
+          }
+        }
+      });
+    });
 
-    // Also check user_images table for paid images
-    const { data: userImagesData, error: userImagesError } = await supabase
-      .from('user_images')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (userImagesError) {
-      console.warn('Error fetching from user_images:', userImagesError);
-    } else {
-      console.log('🖼️ Found user_images:', userImagesData?.length || 0);
-      if (userImagesData) {
-        const paidUserImages = userImagesData.filter(img => {
-          const isPaid = img.status === 'paid' || img.is_paid === true || img.payment_status === 'completed';
-          return isPaid && !imageIds.has(img.id);
-        });
-        console.log('💰 Paid user_images:', paidUserImages.length);
-        paidUserImages.forEach(img => {
-          imageIds.add(img.id);
-          imagesData.push(img);
-        });
-      }
-    }
-
-    console.log('✅ Total paid images found:', imagesData.length);
-
-    // Map to ImageData format
-    const mappedImages = imagesData.map((img) => ({
-      id: img.id,
-      image_url: img.image_url || img.imageUrl || img.url || '',
-      title: img.title || img.name || undefined,
-      collection_title: img.collection_title || img.title || img.name || undefined,
-      sender_name: img.sender_name || img.sender || img.photographer_name || undefined,
-      file_name: img.file_name || img.filename || undefined
-    }));
-
-    return mappedImages;
+    console.log('✅ Images returned for user:', imagesResult.length);
+    return imagesResult;
   } catch (error) {
-    console.error('❌ Error fetching paid images:', error);
+    console.error('❌ Error fetching images:', error);
     return [];
   }
 };
 
 const deleteImage = async (imageId: string, userId: string): Promise<{ success: boolean; message?: string; error?: string }> => {
   try {
-    // Try to delete from collections table first
-    const { error: collectionsError } = await supabase
-      .from('collections')
+    // Delete from the canonical `images` table. RLS will enforce permissions.
+    const { error } = await supabase
+      .from('images')
       .delete()
-      .eq('id', imageId)
-      .eq('user_id', userId);
+      .eq('id', imageId);
 
-    if (!collectionsError) {
-      return { success: true, message: 'Image deleted successfully' };
+    if (error) {
+      console.error('Error deleting image from images table:', error);
+      return { success: false, error: error.message || 'Failed to delete image' };
     }
 
-    // Try user_images table
-    const { error: userImagesError } = await supabase
-      .from('user_images')
-      .delete()
-      .eq('id', imageId)
-      .eq('user_id', userId);
-
-    if (!userImagesError) {
-      return { success: true, message: 'Image deleted successfully' };
-    }
-
-    // Try user_purchases table (remove purchase record)
-    const { error: purchasesError } = await supabase
-      .from('user_purchases')
-      .delete()
-      .eq('image_id', imageId)
-      .eq('user_id', userId);
-
-    if (!purchasesError) {
-      return { success: true, message: 'Image deleted successfully' };
-    }
-
-    return { success: false, error: 'Failed to delete image' };
+    return { success: true, message: 'Image deleted successfully' };
   } catch (error: any) {
     console.error('Error deleting image:', error);
     return { success: false, error: error.message || 'Failed to delete image' };
