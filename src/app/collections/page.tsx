@@ -115,12 +115,12 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
   try {
     console.log('🔍 Fetching images for user (photos/images schema):', userId);
 
-    // Fetch photos that involve the user (either sender or recipient) and include nested images
-    const { data: photosData, error: photosError } = await supabase
-      .from('photos')
-      .select('id, title, description, is_payment_required, sender_id, recipient_id, images(*)')
-      .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
-      .order('created_at', { ascending: false });
+      // Fetch photos where the user is the recipient and include nested images
+      const { data: photosData, error: photosError } = await supabase
+        .from('photos')
+        .select('id, title, description, is_payment_required, sender_id, recipient_id, images(*)')
+        .eq('recipient_id', userId)
+        .order('created_at', { ascending: false });
 
     if (photosError) {
       console.warn('Error fetching photos:', photosError);
@@ -130,16 +130,18 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
     const imagesResult: ImageData[] = [];
     const seen = new Set<string>();
 
+    // For recipients: only include images when the photo is free OR the image.status === 'paid'
     (photosData || []).forEach((photo: any) => {
-      const isSender = photo.sender_id === userId;
-      const isRecipient = photo.recipient_id === userId;
-
       if (!photo.images || photo.images.length === 0) return;
+
+      const photoRequiresPayment = photo.is_payment_required === true;
 
       photo.images.forEach((img: any) => {
         if (!img || !img.id || seen.has(img.id)) return;
-        // If user is sender, they can see all images
-        if (isSender) {
+
+        const imageIsPaid = img.status === 'paid';
+
+        if (!photoRequiresPayment || imageIsPaid) {
           seen.add(img.id);
           imagesResult.push({
             id: img.id,
@@ -149,25 +151,6 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
             sender_name: undefined,
             file_name: img.file_name || undefined
           });
-          return;
-        }
-
-        // If user is recipient, only include if photo is free OR image is paid
-        if (isRecipient) {
-          const photoRequiresPayment = photo.is_payment_required === true;
-          const imageIsPaid = img.status === 'paid';
-
-          if (!photoRequiresPayment || imageIsPaid) {
-            seen.add(img.id);
-            imagesResult.push({
-              id: img.id,
-              image_url: img.image_url || img.url || '',
-              title: img.title || photo.title || undefined,
-              collection_title: photo.title || undefined,
-              sender_name: undefined,
-              file_name: img.file_name || undefined
-            });
-          }
         }
       });
     });
