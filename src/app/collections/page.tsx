@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@supabase/supabase-js';
@@ -603,6 +603,29 @@ function MyCollectionTab({
   isLoadingImages: boolean;
 }) {
   const [showOptions, setShowOptions] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowOptions(null);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowOptions(null);
+    };
+
+    if (showOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showOptions]);
 
   if (isLoadingImages) {
     return (
@@ -701,51 +724,69 @@ function MyCollectionTab({
             {/* Options Menu */}
             {showOptions === image.id && (
               <div
-                className="absolute bottom-14 right-3 bg-white rounded-lg shadow-xl py-2 min-w-[200px] z-10"
+                ref={menuRef}
+                className="absolute bottom-14 right-3 bg-white rounded-lg shadow-xl pt-4 pb-2 min-w-[200px] z-10"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onDownloadImage(image);
                     setShowOptions(null);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-3 text-sm"
+                  className="absolute top-2 right-2 p-1.5 rounded-full text-gray-500 hover:bg-gray-100"
+                  aria-label="Close options"
                 >
-                  <Download className="w-4 h-4 text-green-600" />
-                  <div>
-                    <div className="font-medium">Download Image</div>
-                    <div className="text-xs text-gray-500">Save to device</div>
-                  </div>
+                  <X className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onShareImage(image);
-                    setShowOptions(null);
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-3 text-sm"
-                >
-                  <Share2 className="w-4 h-4 text-blue-600" />
-                  <div>
-                    <div className="font-medium">Share Image</div>
-                    <div className="text-xs text-gray-500">Share with friends</div>
-                  </div>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDeleteImage(image);
-                    setShowOptions(null);
-                  }}
-                  className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-3 text-sm"
-                >
-                  <Trash2 className="w-4 h-4 text-red-600" />
-                  <div>
-                    <div className="font-medium">Delete Image</div>
-                    <div className="text-xs text-gray-500">Remove from collection</div>
-                  </div>
-                </button>
+
+                <div className="px-4 pb-2 border-b border-gray-100">
+                  <div className="text-sm font-medium text-gray-700">Options</div>
+                </div>
+
+                <div className="mt-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDownloadImage(image);
+                      setShowOptions(null);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-3 text-sm"
+                  >
+                    <Download className="w-4 h-4 text-green-600" />
+                    <div>
+                      <div className="font-medium">Download Image</div>
+                      <div className="text-xs text-gray-500">Save to device</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShareImage(image);
+                      setShowOptions(null);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-3 text-sm"
+                  >
+                    <Share2 className="w-4 h-4 text-blue-600" />
+                    <div>
+                      <div className="font-medium">Share Image</div>
+                      <div className="text-xs text-gray-500">Share with friends</div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteImage(image);
+                      setShowOptions(null);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center gap-3 text-sm"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <div>
+                      <div className="font-medium">Delete Image</div>
+                      <div className="text-xs text-gray-500">Remove from collection</div>
+                    </div>
+                  </button>
+                </div>
               </div>
             )}
           </div>
