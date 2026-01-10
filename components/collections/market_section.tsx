@@ -744,48 +744,49 @@ export default function Market() {
       {/* Payment Dialog */}
       {showPaymentDialog && paymentDetails && (
         <Dialog onClose={() => !isProcessingPayment && setShowPaymentDialog(false)}>
-          <h2 className="text-xl font-bold mb-4">Complete Payment</h2>
-          <p className="mb-2">{paymentDetails.description}</p>
-          <p className="text-2xl font-bold text-green-600 mb-4">
-            Total: KSH {paymentDetails.totalAmount}
-          </p>
-          
-          {!isProcessingPayment ? (
-            <>
-              <label className="block mb-2 text-sm font-medium">
-                Enter your M-Pesa phone number:
-              </label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                className="w-full px-3 py-2 border rounded mb-4"
-                placeholder="0712345678"
-              />
-              <div className="flex gap-2 justify-end">
-                <button
-                  onClick={() => setShowPaymentDialog(false)}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={initiatePayment}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Pay Now
-                </button>
+          <div className="text-black">
+            <h2 className="text-xl font-bold mb-4">Complete Payment</h2>
+            <p className="mb-2">{paymentDetails.description}</p>
+            <p className="text-2xl font-bold text-green-600 mb-4">
+              Total: KSH {paymentDetails.totalAmount}
+            </p>
+            
+            {!isProcessingPayment ? (
+              <>
+                <label className="block mb-2 text-sm font-medium text-black">
+                  Enter your M-Pesa phone number:
+                </label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full px-3 py-2 border rounded mb-4 text-black placeholder-black"
+                />
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setShowPaymentDialog(false)}
+                    className="px-4 py-2 text-black hover:bg-gray-100 rounded"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={initiatePayment}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Pay Now
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-4 py-4">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <div>
+                  <p className="font-medium text-black">Processing payment...</p>
+                  <p className="text-sm text-black">Check your phone for M-Pesa prompt</p>
+                </div>
               </div>
-            </>
-          ) : (
-            <div className="flex items-center gap-4 py-4">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-              <div>
-                <p className="font-medium">Processing payment...</p>
-                <p className="text-sm text-gray-600">Check your phone for M-Pesa prompt</p>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </Dialog>
       )}
 
