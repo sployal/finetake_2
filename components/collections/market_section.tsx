@@ -105,18 +105,52 @@ const imageService = {
 
       // If still not found, try to get images from user_purchases or user_collections
       if (!loaded) {
-        // Check if user has purchased images
-        const { data: purchasesData, error: purchasesError } = await supabase
-          .from('user_purchases')
-          .select('*, image:image_id(*)')
-          .eq('user_id', userId);
+        // First try to fetch from photos -> images relationship (per provided schema)
+        try {
+          const { data: photosWithImages, error: photosError } = await supabase
+            .from('photos')
+            .select('*, images(*)')
+            .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`);
 
-        if (!purchasesError && purchasesData && purchasesData.length > 0) {
-          // Map purchased images
-          imagesData = purchasesData
-            .filter(p => p.image)
-            .map(p => ({ ...p.image, status: 'paid', purchase_id: p.id }));
-          loaded = true;
+          if (!photosError && photosWithImages && photosWithImages.length > 0) {
+            // Flatten images and attach collection metadata
+            const flattened: any[] = [];
+            photosWithImages.forEach((photo: any) => {
+              const imgs = photo.images || [];
+              imgs.forEach((img: any) => {
+                flattened.push({
+                  ...img,
+                  collection_title: photo.title || photo.description || undefined,
+                  sender_id: photo.sender_id,
+                  recipient_id: photo.recipient_id,
+                  status: img.status || 'unpaid'
+                });
+              });
+            });
+
+            if (flattened.length > 0) {
+              imagesData = flattened;
+              loaded = true;
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching photos/images:', err);
+        }
+
+        // If still not found, check if user has purchased images
+        if (!loaded) {
+          const { data: purchasesData, error: purchasesError } = await supabase
+            .from('user_purchases')
+            .select('*, image:image_id(*)')
+            .eq('user_id', userId);
+
+          if (!purchasesError && purchasesData && purchasesData.length > 0) {
+            // Map purchased images
+            imagesData = purchasesData
+              .filter((p: any) => p.image)
+              .map((p: any) => ({ ...p.image, status: 'paid', purchase_id: p.id }));
+            loaded = true;
+          }
         }
       }
 
@@ -140,6 +174,14 @@ const imageService = {
           }));
         }
       }
+
+      // Ensure only images actually sent to this user (as recipient) or images purchased by them
+      imagesData = imagesData.filter(img => {
+        if (img.recipient_id && img.recipient_id === userId) return true;
+        if ((img.recipient && img.recipient === userId) || (img.recipientId && img.recipientId === userId)) return true;
+        if (img.purchase_id) return true; // purchased images should be included
+        return false;
+      });
 
       // Process the loaded images
       this.processImages(imagesData);

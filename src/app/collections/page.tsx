@@ -33,6 +33,9 @@ interface ImageData {
   title?: string;
   collection_title?: string;
   sender_name?: string;
+  sender_id?: string;
+  mime_type?: string;
+  created_at?: string;
   file_name?: string;
 }
 
@@ -118,7 +121,7 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
       // Fetch photos where the user is the recipient and include nested images
       const { data: photosData, error: photosError } = await supabase
         .from('photos')
-        .select('id, title, description, is_payment_required, sender_id, recipient_id, images(*)')
+        .select('id, title, description, is_payment_required, sender_id, recipient_id, sender:sender_id(id, display_name, full_name, name, username, first_name, last_name, avatar_url), images(*)')
         .eq('recipient_id', userId)
         .order('created_at', { ascending: false });
 
@@ -129,6 +132,25 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
 
     const imagesResult: ImageData[] = [];
     const seen = new Set<string>();
+
+    // If the joined sender object wasn't returned (RLS or missing), fetch missing sender profiles as a fallback
+    const missingSenderIds = Array.from(new Set((photosData || [])
+      .filter((p: any) => !p.sender && p.sender_id)
+      .map((p: any) => p.sender_id)
+      .filter(Boolean)));
+    let fallbackProfiles: Record<string, any> = {};
+    if (missingSenderIds.length > 0) {
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, display_name, full_name, name, username, first_name, last_name, avatar_url')
+        .in('id', missingSenderIds);
+
+      if (!profilesError && profilesData) {
+        fallbackProfiles = Object.fromEntries((profilesData as any[]).map(p => [String(p.id), p]));
+      } else if (profilesError) {
+        console.warn('Error fetching missing sender profiles:', profilesError);
+      }
+    }
 
     // For recipients: only include images when the photo is free OR the image.status === 'paid'
     (photosData || []).forEach((photo: any) => {
@@ -143,13 +165,25 @@ const fetchPaidImages = async (userId: string): Promise<ImageData[]> => {
 
         if (!photoRequiresPayment || imageIsPaid) {
           seen.add(img.id);
+          const senderProfile = photo.sender || fallbackProfiles[String(photo.sender_id)] || null;
+          let senderName: string | undefined = undefined;
+          if (senderProfile) {
+            senderName = senderProfile.display_name || senderProfile.full_name || senderProfile.name || senderProfile.username;
+            if (!senderName && (senderProfile.first_name || senderProfile.last_name)) {
+              senderName = `${senderProfile.first_name || ''}${senderProfile.first_name && senderProfile.last_name ? ' ' : ''}${senderProfile.last_name || ''}`.trim();
+            }
+          }
+
           imagesResult.push({
             id: img.id,
             image_url: img.image_url || img.url || '',
-            title: img.title || photo.title || undefined,
+            title: img.title || img.file_name || photo.title || undefined,
             collection_title: photo.title || undefined,
-            sender_name: undefined,
-            file_name: img.file_name || undefined
+            sender_name: senderName,
+            sender_id: photo.sender_id,
+            file_name: img.file_name || undefined,
+            mime_type: img.mime_type || img.type || undefined,
+            created_at: img.created_at || img.inserted_at || undefined
           });
         }
       });
