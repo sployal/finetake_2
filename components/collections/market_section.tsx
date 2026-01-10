@@ -222,7 +222,20 @@ const adminPricingHelper = {
   
   async loadCurrentPrice() {
     try {
-      // Try to fetch current price from settings or pricing table
+      // First, try the picture_prices table (single latest price)
+      const { data: picPrice, error: picPriceError } = await supabase
+        .from('picture_prices')
+        .select('price')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!picPriceError && picPrice && typeof picPrice.price !== 'undefined') {
+        this.currentPrice = Number(picPrice.price) || 100;
+        return;
+      }
+
+      // Try to fetch current price from settings
       const { data: settings, error } = await supabase
         .from('settings')
         .select('image_price, current_price')
@@ -234,7 +247,7 @@ const adminPricingHelper = {
         return;
       }
 
-      // Try pricing table
+      // Try pricing table as a final fallback
       const { data: pricing, error: pricingError } = await supabase
         .from('pricing')
         .select('price')
