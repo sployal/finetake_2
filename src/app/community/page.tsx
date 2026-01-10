@@ -88,6 +88,16 @@ export default function CommunityPage() {
     getUser();
   }, []);
 
+  // Add a class to <body> and <html> while this page is mounted to hide the native scrollbar
+  useEffect(() => {
+    document.body.classList.add('community-no-scrollbar');
+    document.documentElement.classList.add('community-no-scrollbar');
+    return () => {
+      document.body.classList.remove('community-no-scrollbar');
+      document.documentElement.classList.remove('community-no-scrollbar');
+    };
+  }, []);
+
   // Fetch likes and bookmarks
   const fetchUserData = async () => {
     if (!currentUser) return;

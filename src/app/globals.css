@@ -39,3 +39,14 @@ body {
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
 }
+
+/* Hide native scrollbar when the community page is active */
+html.community-no-scrollbar,
+body.community-no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+html.community-no-scrollbar::-webkit-scrollbar,
+body.community-no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
