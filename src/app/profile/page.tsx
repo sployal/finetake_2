@@ -132,7 +132,7 @@ export default function ProfilePage() {
         router.push('/profile/edit');
         break;
       case 'dashboard':
-        router.push('/dashboard');
+        router.push('/profile/dashboard');
         break;
       case 'users':
         router.push('/profile/users');
@@ -217,6 +217,14 @@ export default function ProfilePage() {
                       >
                         <Users size={20} className="text-indigo-600" />
                         <span className="font-medium text-gray-900">Users</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleMenuAction('dashboard')}
+                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition"
+                      >
+                        <LayoutDashboard size={20} className="text-indigo-600" />
+                        <span className="font-medium text-gray-900">Dashboard</span>
                       </button>
 
                     {isAdmin && (
